@@ -148,7 +148,7 @@ def test():
     # 만약 K-Fold 특정 Fold를 테스트하려면 해당 로직에 맞는 인덱스를 구해서 넣어야 합니다.
     train_indices, val_indices = get_default_indices(args)
 
-    ckpt_path = os.path.join(args.checkpoint_path, 'last.ckpt')
+    ckpt_path = args.checkpoint_path
     if not os.path.exists(ckpt_path):
         print(f"Checkpoint not found: {ckpt_path}")
         return
