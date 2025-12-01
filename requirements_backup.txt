@@ -1,0 +1,8 @@
+numpy==1.26.4
+pytorch-lightning==1.9.5
+torchmetrics==0.11.4
+opencv-python
+nibabel
+matplotlib
+matplotlib-inline
+IPython
