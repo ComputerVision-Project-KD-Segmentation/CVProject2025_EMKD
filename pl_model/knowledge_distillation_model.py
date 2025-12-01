@@ -23,7 +23,11 @@ class KnowledgeDistillationPLModel(BasePLModel):
 
         # 1. Load and freeze teacher net
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
-        self.t_net = SegmentationPLModel.load_from_checkpoint(checkpoint_path=self.hparams.tckpt)
+        self.t_net = SegmentationPLModel.load_from_checkpoint(
+            checkpoint_path=self.hparams.tckpt,
+            train_indices=train_indices,
+            val_indices=val_indices
+        )
         self.t_net.freeze() # 파라미터 동결 및 eval 모드 설정
 
         # 2. Student net
