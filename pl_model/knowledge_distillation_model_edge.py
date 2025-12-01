@@ -160,8 +160,8 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         
         # Total EDGE distillation loss
         loss_edge = (
-            bkd_loss1 + hd_loss1 +
-            bkd_loss2 + hd_loss2 +
+            #bkd_loss1 + hd_loss1 +
+            #bkd_loss2 + hd_loss2 +
             bkd_loss3 + hd_loss3
         )
         
@@ -176,12 +176,12 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         self.log('train_loss_edge', loss_edge, on_step=False, on_epoch=True, prog_bar=True)
         
         # EDGE components - Stage 1
-        self.log('train_bkd1', bkd_loss1, on_step=False, on_epoch=True)
-        self.log('train_hd1', hd_loss1, on_step=False, on_epoch=True)
+        #self.log('train_bkd1', bkd_loss1, on_step=False, on_epoch=True)
+        #self.log('train_hd1', hd_loss1, on_step=False, on_epoch=True)
         
         # EDGE components - Stage 2
-        self.log('train_bkd2', bkd_loss2, on_step=False, on_epoch=True)
-        self.log('train_hd2', hd_loss2, on_step=False, on_epoch=True)
+        #self.log('train_bkd2', bkd_loss2, on_step=False, on_epoch=True)
+        #self.log('train_hd2', hd_loss2, on_step=False, on_epoch=True)
         
         # EDGE components - Stage 3
         self.log('train_bkd3', bkd_loss3, on_step=False, on_epoch=True)
