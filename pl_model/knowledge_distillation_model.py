@@ -17,9 +17,9 @@ class KnowledgeDistillationPLModel(BasePLModel):
     def __init__(self, params, train_indices, val_indices):
         super(KnowledgeDistillationPLModel, self).__init__()
         self.save_hyperparameters(params)
-        self.alpha = self.params.get('alpha', alpha)
-        self.beta1 = self.params.get('beta1', beta1)
-        self.beta2 = self.params.get('beta2', beta2)
+        self.alpha = self.hparams.get('alpha', alpha)
+        self.beta1 = self.hparams.get('beta1', beta1)
+        self.beta2 = self.hparams.get('beta2', beta2)
 
         # 1. Load and freeze teacher net
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
