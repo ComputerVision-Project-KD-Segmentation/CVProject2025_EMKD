@@ -129,6 +129,8 @@ def importance_maps_distillation(s, t, exp=4):
     """
     if s.shape[2] != t.shape[2]:
         s = F.interpolate(s, t.size()[-2:], mode='bilinear')
+    print("t shape :", t.shape)
+    print("s shape :", s.shape)
     return torch.sum((at(s, exp) - at(t, exp)).pow(2), dim=1).mean()
 
 
