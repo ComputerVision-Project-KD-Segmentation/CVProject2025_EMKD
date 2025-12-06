@@ -127,11 +127,11 @@ def importance_maps_distillation(s, t, exp=4):
     :param t: teacher feature maps
     :return: imd loss value
     """
-    print("t shape :", t.shape)
-    print("s shape :", s.shape)
+    # print("t shape :", t.shape)
+    # print("s shape :", s.shape)
     if s.shape[2] != t.shape[2]:
         s = F.interpolate(s, t.size()[-2:], mode='bilinear')
-    print("s interpolate shape :", s.shape)
+    # print("s interpolate shape :", s.shape)
     return torch.sum((at(s, exp) - at(t, exp)).pow(2), dim=1).mean()
 
 
@@ -142,12 +142,14 @@ def region_contrast(x, gt):
     :param gt: mask
     :return: value
     """
-    smooth = 1.0
+    eps = 1e-6
     mask0 = gt[:, 0].unsqueeze(1)
     mask1 = gt[:, 1].unsqueeze(1)
 
-    region0 = torch.sum(x * mask0, dim=(2, 3)) / torch.sum(mask0, dim=(2, 3))
-    region1 = torch.sum(x * mask1, dim=(2, 3)) / (torch.sum(mask1, dim=(2, 3)) + smooth)
+    # Add eps to denominators to prevent NaN
+    region0 = torch.sum(x * mask0, dim=(2, 3)) / (torch.sum(mask0, dim=(2, 3)) + eps)
+    region1 = torch.sum(x * mask1, dim=(2, 3)) / (torch.sum(mask1, dim=(2, 3)) + eps)
+    
     return F.cosine_similarity(region0, region1, dim=1)
 
 
@@ -158,8 +160,17 @@ def region_affinity_distillation(s, t, gt):
     :param t: teacher feature
     :return: loss value
     """
-    gt = F.interpolate(gt, s.size()[2:])
-    return (region_contrast(s, gt) - region_contrast(t, gt)).pow(2).mean()
+    # 1. Resize GT to match Student spatial dimensions
+    # Use mode='nearest' to preserve integer class values if gt is discrete, 
+    # or 'bilinear' if gt is soft probabilities.
+    gt_s = F.interpolate(gt, size=s.shape[2:], mode='nearest')
+    rc_s = region_contrast(s, gt_s)
+
+    # 2. Resize GT to match Teacher spatial dimensions
+    gt_t = F.interpolate(gt, size=t.shape[2:], mode='nearest')
+    rc_t = region_contrast(t, gt_t)
+
+    return (rc_s - rc_t).pow(2).mean()
 
 # ==================== EDGE Knowledge Distillation Losses ====================
 
