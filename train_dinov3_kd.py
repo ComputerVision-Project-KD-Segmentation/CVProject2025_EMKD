@@ -2,7 +2,7 @@ import os
 import argparse
 import gc # 가비지 컬렉션을 위해 추가
 
-from pl_model.knowledge_distillation_model import KnowledgeDistillationPLModel
+from pl_model.dinov3_knowledge_distillation_model import Dinov3KnowledgeDistillationPLModel
 from datasets.dataset import load_case_mapping, split_train_val
 
 from sklearn.model_selection import KFold
@@ -48,7 +48,7 @@ def main():
         case_mapping, train_ratio=0.8, seed=args.seed
     )
 
-    model = KnowledgeDistillationPLModel(args, train_indices, val_indices)
+    model = Dinov3KnowledgeDistillationPLModel(args, train_indices, val_indices)
 
     # checkpoint
     checkpoint_callback = ModelCheckpoint(
@@ -106,7 +106,7 @@ def main_k_fold():
         print(f" - Slices: Train {len(train_indices)}, Val {len(val_indices)}")
         
         # 모델 초기화
-        model = KnowledgeDistillationPLModel(args, train_indices=train_indices, val_indices=val_indices)
+        model = Dinov3KnowledgeDistillationPLModel(args, train_indices=train_indices, val_indices=val_indices)
 
         # Checkpoint
         checkpoint_callback = ModelCheckpoint(
@@ -160,7 +160,7 @@ def test():
     print(f"Loading checkpoint: {ckpt_path}")
     
     # args=args를 전달하여 hparams 덮어쓰기 가능 (Teacher 경로 등 확보)
-    model = KnowledgeDistillationPLModel.load_from_checkpoint(
+    model = Dinov3KnowledgeDistillationPLModel.load_from_checkpoint(
         checkpoint_path=ckpt_path,
         params=args, 
         train_indices=train_indices,

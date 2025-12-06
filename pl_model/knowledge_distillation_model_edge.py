@@ -2,7 +2,7 @@ import torch
 from models import get_model
 from pl_model.base import BasePLModel
 from pl_model.segmentation_model import SegmentationPLModel
-from utils.loss_functions_edge import calc_loss, DSDLoss 
+from utils.loss_functions import calc_loss, DSDLoss
 from datasets.dataset import SliceDataset
 
 from torch.utils.data import DataLoader
@@ -25,7 +25,6 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         # Teacher는 inference만 하므로 dummy indices 사용
         self.t_net = SegmentationPLModel.load_from_checkpoint(
             checkpoint_path=self.hparams.tckpt,
-            #params=self.hparams,
             train_indices=[],  # dummy - teacher는 DataLoader 사용 안 함
             val_indices=[]     # dummy - teacher는 DataLoader 사용 안 함
         )
@@ -37,59 +36,8 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         self.train_indices = train_indices
         self.val_indices = val_indices
         
-        # 3. EDGE Distillation Losses (Multi-stage)
-        # Get student feature dimensions based on model type
-        if self.hparams.smodel == 'enet':
-            # ENet feature dimensions
-            stage1_chans = 16   # Low-level features
-            stage2_chans = 128  # High-level features
-        elif self.hparams.smodel == 'unet':
-            # U-Net feature dimensions
-            stage1_chans = 64
-            stage2_chans = 128
-        else:
-            # Default dimensions
-            stage1_chans = 64
-            stage2_chans = 128
-        
-        # Stage 1: Low-level features (SAKD)
-        self.dsd_loss1 = DSDLoss(
-            in_chans=stage1_chans,
-            num_classes=2,
-            num_stages=3,
-            cur_stage=1,
-            kernel_size=3,
-            interpolate=False,
-            bd_include_background=False,  # Exclude background for ECKD
-            hd_include_background=False,  # Exclude background for SRKD
-            one_hot_target=True,
-            sigmoid=False,
-            softmax=True,
-            tau=4,
-            loss_weight=1.0,
-            overall_loss_weight=1.0
-        )
-        
-        # Stage 2: High-level features (SAKD)
-        self.dsd_loss2 = DSDLoss(
-            in_chans=stage2_chans,
-            num_classes=2,
-            num_stages=3,
-            cur_stage=2,
-            kernel_size=3,
-            interpolate=False,
-            bd_include_background=False,
-            hd_include_background=False,
-            one_hot_target=True,
-            sigmoid=False,
-            softmax=True,
-            tau=4,
-            loss_weight=1.0,
-            overall_loss_weight=1.0
-        )
-        
-        # Stage 3: Final logits (SAKD)
-        self.dsd_loss3 = DSDLoss(
+        # Stage : Final logits (SAKD)
+        self.dsd_loss = DSDLoss(
             in_chans=2,  # Final logits
             num_classes=2,
             num_stages=3,
@@ -126,43 +74,19 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         loss_seg = calc_loss(output, mask)
 
         # ==================== EDGE Knowledge Distillation ====================
-        
-        # Stage 1: Low-level features (ECKD + SRKD + SAKD)
-        loss_dict1 = self.dsd_loss1(
-            feat_student=low,
-            logits_teacher=t_out.detach(),
-            label=mask
-        )
-        
-        # Stage 2: High-level features (ECKD + SRKD + SAKD)
-        loss_dict2 = self.dsd_loss2(
-            feat_student=high,
-            logits_teacher=t_out.detach(),
-            label=mask
-        )
-        
-        # Stage 3: Final logits (ECKD + SRKD)
-        loss_dict3 = self.dsd_loss3(
+        # Stage : Final logits (ECKD + SRKD)
+        loss_dict = self.dsd_loss(
             feat_student=output,
             logits_teacher=t_out.detach(),
             label=mask
         )
         
-        # Extract individual losses
-        bkd_loss1 = loss_dict1['bkd_loss']  # ECKD (Edge Constraint)
-        hd_loss1 = loss_dict1['hd_loss']    # SRKD (Hausdorff Distance)
-        
-        bkd_loss2 = loss_dict2['bkd_loss']
-        hd_loss2 = loss_dict2['hd_loss']
-        
-        bkd_loss3 = loss_dict3['bkd_loss']
-        hd_loss3 = loss_dict3['hd_loss']
+        bkd_loss = loss_dict['bkd_loss']
+        hd_loss = loss_dict['hd_loss']
         
         # Total EDGE distillation loss
         loss_edge = (
-            #bkd_loss1 + hd_loss1 +
-            #bkd_loss2 + hd_loss2 +
-            bkd_loss3 + hd_loss3
+            bkd_loss + hd_loss
         )
         
         # Combined loss
@@ -175,17 +99,9 @@ class KnowledgeDistillationPLModelEDGE(BasePLModel):
         self.log('train_loss_seg', loss_seg, on_step=False, on_epoch=True, prog_bar=True)
         self.log('train_loss_edge', loss_edge, on_step=False, on_epoch=True, prog_bar=True)
         
-        # EDGE components - Stage 1
-        #self.log('train_bkd1', bkd_loss1, on_step=False, on_epoch=True)
-        #self.log('train_hd1', hd_loss1, on_step=False, on_epoch=True)
-        
-        # EDGE components - Stage 2
-        #self.log('train_bkd2', bkd_loss2, on_step=False, on_epoch=True)
-        #self.log('train_hd2', hd_loss2, on_step=False, on_epoch=True)
-        
         # EDGE components - Stage 3
-        self.log('train_bkd3', bkd_loss3, on_step=False, on_epoch=True)
-        self.log('train_hd3', hd_loss3, on_step=False, on_epoch=True)
+        self.log('train_bkd3', bkd_loss, on_step=False, on_epoch=True)
+        self.log('train_hd3', hd_loss, on_step=False, on_epoch=True)
 
         return loss
 

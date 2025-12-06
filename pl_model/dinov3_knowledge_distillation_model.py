@@ -1,7 +1,7 @@
 import torch
 from models import get_model
 from pl_model.base import BasePLModel
-from pl_model.segmentation_model import SegmentationPLModel
+from pl_model.dinov3_segmentation_model import Dinov3SegmentationPLModel
 from datasets.dataset import SliceDataset
 
 from torch.utils.data import DataLoader
@@ -15,9 +15,9 @@ beta2 = 0.9
 beta3 = 0.9
 beta4 = 0.9
 
-class KnowledgeDistillationPLModel(BasePLModel):
+class Dinov3KnowledgeDistillationPLModel(BasePLModel):
     def __init__(self, params, train_indices, val_indices):
-        super(KnowledgeDistillationPLModel, self).__init__()
+        super(Dinov3KnowledgeDistillationPLModel, self).__init__()
         self.save_hyperparameters(params)
         self.alpha = self.hparams.get('alpha', alpha)
         self.beta1 = self.hparams.get('beta1', beta1)
@@ -27,7 +27,7 @@ class KnowledgeDistillationPLModel(BasePLModel):
 
         # 1. Load and freeze teacher net
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
-        self.t_net = SegmentationPLModel.load_from_checkpoint(
+        self.t_net = Dinov3SegmentationPLModel.load_from_checkpoint(
             checkpoint_path=self.hparams.tckpt,
             train_indices=[],
             val_indices=[]
