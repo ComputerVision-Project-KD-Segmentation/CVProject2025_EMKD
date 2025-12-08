@@ -34,6 +34,7 @@ def build_parser():
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--dataset', type=str, default='kits', choices=['kits', 'lits'])
+    parser.add_argument('--enable_progress_bar', type=bool, default=True)
     parser.add_argument('--kfold', action='store_true', help='Enable 5-fold cross validation')
 
     # KD loss 관련 하이퍼파라미터
@@ -87,7 +88,7 @@ def run_single(args):
         devices=1,
         max_epochs=args.epochs,
         callbacks=[checkpoint_callback],
-        enable_progress_bar=True,
+        enable_progress_bar=args.enable_progress_bar,
         logger=logger,
         log_every_n_steps=10
     )
@@ -168,7 +169,7 @@ def run_k_fold(args):
             devices=1,
             max_epochs=args.epochs,
             callbacks=[checkpoint_callback],
-            enable_progress_bar=False,
+            enable_progress_bar=args.enable_progress_bar,
             logger=logger,
             log_every_n_steps=10
         )
@@ -205,7 +206,7 @@ def run_test(args):
     trainer = Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=1,
-        enable_progress_bar=True
+        enable_progress_bar=args.enable_progress_bar
     )
     trainer.test(model)
 

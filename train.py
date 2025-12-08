@@ -26,6 +26,7 @@ parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--num_workers', type=int, default=2)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--dataset', type=str, default='kits', choices=['kits', 'lits'])
+parser.add_argument('--enable_progress_bar', type=bool, default=True)
 parser.add_argument('--kfold', action='store_true', help='Enable 5-fold cross validation')
 
 def get_default_indices(args):
@@ -66,7 +67,7 @@ def main():
         devices=1, # GPU 개수 (필요시 args로 받도록 수정 가능)
         max_epochs=args.epochs, 
         callbacks=[checkpoint_callback], 
-        enable_progress_bar=False, # 코랩에서 프로그레스바 출력으로 과도하게 남음
+        enable_progress_bar=args.enable_progress_bar, # 코랩에서 프로그레스바 출력으로 과도하게 남음
         logger=logger,
         log_every_n_steps=10 # 로깅 빈도 설정
     )
@@ -127,7 +128,7 @@ def main_k_fold():
             devices=1,
             max_epochs=args.epochs, 
             callbacks=[checkpoint_callback], 
-            enable_progress_bar=False,
+            enable_progress_bar=args.enable_progress_bar,
             logger=logger,
             log_every_n_steps=10
         )
@@ -167,7 +168,7 @@ def test():
     trainer = Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=1,
-        enable_progress_bar=True
+        enable_progress_bar=args.enable_progress_bar
     )
     
     trainer.test(model)

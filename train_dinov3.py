@@ -26,6 +26,7 @@ parser.add_argument('--lr', type=float, default=3e-4)
 parser.add_argument('--num_workers', type=int, default=2)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--dataset', type=str, default='kits', choices=['kits', 'lits'])
+parser.add_argument('--enable_progress_bar', type=bool, default=True)
 parser.add_argument('--kfold', action='store_true', help='Enable 5-fold cross validation')
 
 def get_default_indices(args):
@@ -62,7 +63,7 @@ def main():
         devices=1,
         max_epochs=args.epochs, 
         callbacks=[checkpoint_callback], 
-        enable_progress_bar=False, # 진행바 활성화
+        enable_progress_bar=args.enable_progress_bar, # 진행바 활성화
         logger=logger,
         log_every_n_steps=10
     )
@@ -158,7 +159,7 @@ def test():
     trainer = Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=1,
-        enable_progress_bar=True
+        enable_progress_bar=args.enable_progress_bar
     )
     trainer.test(model)
 
