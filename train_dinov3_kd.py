@@ -1,6 +1,6 @@
 import os
 import argparse
-import gc # 가비지 컬렉션을 위해 추가
+import gc
 
 from pl_model.dinov3_knowledge_distillation_model import Dinov3KnowledgeDistillationPLModel
 from datasets.dataset import load_case_mapping, split_train_val
@@ -13,25 +13,40 @@ from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-parser = argparse.ArgumentParser('train_kd')
-parser.add_argument('--data_path', type=str, default='/data/kits/data')
-parser.add_argument('--checkpoint_path', type=str, default='/data/checkpoints')
-parser.add_argument('--tckpt', type=str, default='/data/checkpoints/checkpoint_kits_tumor_enet_epoch=18.ckpt', help='teacher model checkpoint path')
-parser.add_argument('--batch_size', type=int, default=16)
-parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
-parser.add_argument('--smodel', type=str, default='enet') # Student Model
-parser.add_argument('--task', type=str, default='tumor', choices=['tumor', 'organ'])
-parser.add_argument('--epochs', type=int, default=60)
-parser.add_argument('--lr', type=float, default=1e-3)
-parser.add_argument('--num_workers', type=int, default=2)
-parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--dataset', type=str, default='kits', choices=['kits', 'lits'])
-parser.add_argument('--kfold', action='store_true', help='Enable 5-fold cross validation')
-parser.add_argument('--alpha', type=float, default=0.1)
-parser.add_argument('--beta1', type=float, default=0.9)
-parser.add_argument('--beta2', type=float, default=0.9)
-parser.add_argument('--beta3', type=float, default=0)
-parser.add_argument('--beta4', type=float, default=0)
+
+def build_parser():
+    parser = argparse.ArgumentParser('train_dinov3_kd')
+
+    # 기본 경로 및 세팅
+    parser.add_argument('--data_path', type=str, default='/data/kits/data')
+    parser.add_argument('--checkpoint_path', type=str, default='/data/checkpoints',
+                        help='디렉토리 경로 (여기에 last.ckpt 및 epoch별 ckpt 저장)')
+    parser.add_argument('--tckpt', type=str,
+                        default='/data/checkpoints/checkpoint_kits_tumor_enet_epoch=18.ckpt',
+                        help='teacher model checkpoint path (.ckpt)')
+
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
+    parser.add_argument('--smodel', type=str, default='enet', help='Student model name')
+    parser.add_argument('--task', type=str, default='tumor', choices=['tumor', 'organ'])
+    parser.add_argument('--epochs', type=int, default=60)
+    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--num_workers', type=int, default=2)
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--dataset', type=str, default='kits', choices=['kits', 'lits'])
+    parser.add_argument('--kfold', action='store_true', help='Enable 5-fold cross validation')
+
+    # KD loss 관련 하이퍼파라미터
+    parser.add_argument('--alpha', type=float, default=0.1)
+    parser.add_argument('--beta1', type=float, default=0.9)
+    parser.add_argument('--beta2', type=float, default=0.9)
+    parser.add_argument('--beta3', type=float, default=0.0)
+    parser.add_argument('--beta4', type=float, default=0.0)
+
+    # last.ckpt에서 이어서 학습
+    parser.add_argument('--resume_last', action='store_true',
+                        help='Resume training from checkpoint_path/last.ckpt (single-split only)')
+    return parser
 
 
 def get_default_indices(args):
@@ -39,10 +54,11 @@ def get_default_indices(args):
     case_mapping = load_case_mapping(args.data_path, args.task)
     return split_train_val(case_mapping, train_ratio=0.8, seed=args.seed)
 
-def main():
-    args = parser.parse_args()
+
+def run_single(args):
+    """단일 train/val split에서 KD 학습"""
     seed_everything(args.seed, workers=True)
-    
+
     case_mapping = load_case_mapping(args.data_path, args.task)
     train_indices, val_indices = split_train_val(
         case_mapping, train_ratio=0.8, seed=args.seed
@@ -50,68 +66,89 @@ def main():
 
     model = Dinov3KnowledgeDistillationPLModel(args, train_indices, val_indices)
 
-    # checkpoint
+    # Checkpoint 콜백 (last.ckpt 포함)
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.checkpoint_path,
-        # [수정] args.smodel 사용
         filename=f'checkpoint_{args.dataset}_{args.task}_kd_{args.smodel}_' + '{epoch}',
-        save_last=True,
+        save_last=True,     # 항상 last.ckpt 저장
         save_top_k=5,
         monitor='dice_class0',
         mode='max',
         verbose=True
     )
 
-    logger = TensorBoardLogger('log', name=f'{args.dataset}_{args.task}_kd_{args.smodel}')
-    
+    logger = TensorBoardLogger(
+        'log',
+        name=f'{args.dataset}_{args.task}_kd_{args.smodel}'
+    )
+
     trainer = Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
         devices=1,
-        max_epochs=args.epochs, 
-        callbacks=[checkpoint_callback], 
-        enable_progress_bar=False, # 진행상황 보이게 수정
+        max_epochs=args.epochs,
+        callbacks=[checkpoint_callback],
+        enable_progress_bar=True,
         logger=logger,
         log_every_n_steps=10
     )
-    trainer.fit(model)
 
-def main_k_fold():
-    args = parser.parse_args()
+    # last.ckpt에서 이어서 학습
+    ckpt_path = None
+    if args.resume_last:
+        last_path = os.path.join(args.checkpoint_path, 'last.ckpt')
+        if os.path.exists(last_path):
+            print(f"[Resume] Resuming training from last checkpoint: {last_path}")
+            ckpt_path = last_path
+        else:
+            print(f"[Warning] last.ckpt not found at: {last_path}")
+            print("         새로 학습을 시작합니다.")
+
+    trainer.fit(model, ckpt_path=ckpt_path)
+
+
+def run_k_fold(args):
+    """5-fold case-level cross validation"""
     seed_everything(args.seed, workers=True)
-    
+
     all_cases = load_case_mapping(args.data_path, args.task)
-    
     case_ids = np.array(sorted(all_cases.keys()))
     kfold = KFold(n_splits=5, shuffle=True, random_state=args.seed)
 
-    # [수정] split(all_cases) -> split(case_ids)
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(case_ids)):
-        print(f"\n{'='*20}")
-        print(f"Start Training Fold: {fold} / 4")
-        print(f"{'='*20}")
+    if args.resume_last:
+        print("[Warning] --resume_last는 k-fold 모드에서는 사용하지 않습니다. (각 fold별 fresh training)")
 
-        # 인덱스를 이용해 실제 데이터 ID 리스트 추출
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(case_ids)):
+        print(f"\n{'=' * 20}")
+        print(f"Start Training Fold: {fold} / 4")
+        print(f"{'=' * 20}")
+
+        # 인덱스를 이용해 실제 case ID 리스트 추출
         train_cases = case_ids[train_idx]
         val_cases = case_ids[val_idx]
 
         train_indices = []
         for case_id in train_cases:
             train_indices.extend(all_cases[case_id]['indices'])
-            
+
         val_indices = []
         for case_id in val_cases:
             val_indices.extend(all_cases[case_id]['indices'])
 
-        print(f" - Cases: Train {len(train_cases)}, Val {len(val_cases)}")
+        print(f" - Cases:  Train {len(train_cases)}, Val {len(val_cases)}")
         print(f" - Slices: Train {len(train_indices)}, Val {len(val_indices)}")
-        
-        # 모델 초기화
-        model = Dinov3KnowledgeDistillationPLModel(args, train_indices=train_indices, val_indices=val_indices)
 
-        # Checkpoint
+        # 모델 초기화
+        model = Dinov3KnowledgeDistillationPLModel(
+            args,
+            train_indices=train_indices,
+            val_indices=val_indices
+        )
+
+        # Fold별 체크포인트 디렉토리
+        fold_ckpt_dir = os.path.join(args.checkpoint_path, f'fold{fold}')
+
         checkpoint_callback = ModelCheckpoint(
-            dirpath=os.path.join(args.checkpoint_path, f'fold{fold}'),
-            # [수정] args.model -> args.smodel (Parser에는 smodel로 정의됨)
+            dirpath=fold_ckpt_dir,
             filename=f'checkpoint_{args.dataset}_{args.task}_kd_{args.smodel}_fold{fold}_' + '{epoch}',
             save_last=True,
             save_top_k=5,
@@ -120,49 +157,47 @@ def main_k_fold():
             verbose=True
         )
 
-        # Logger
         logger = TensorBoardLogger(
-            'log', 
+            'log',
             name=f'{args.dataset}_{args.task}_kd_{args.smodel}',
-            version=f'fold_{fold}' 
+            version=f'fold_{fold}'
         )
 
         trainer = Trainer(
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=1,
-            max_epochs=args.epochs, 
-            callbacks=[checkpoint_callback], 
+            max_epochs=args.epochs,
+            callbacks=[checkpoint_callback],
             enable_progress_bar=False,
             logger=logger,
             log_every_n_steps=10
         )
-        
+
         trainer.fit(model)
-        
-        # [추가] 메모리 정리
+
+        # 메모리 정리
         del model, trainer
         gc.collect()
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-def test():
-    args = parser.parse_args()
 
-    # [수정] Test 시에도 __init__에 필요한 인자를 넘겨줘야 함
-    # 저장된 체크포인트의 hparams에는 train_indices가 없을 확률이 높음
+def run_test(args):
+    """last.ckpt를 이용해 test 모드 실행"""
+    seed_everything(args.seed, workers=True)
+
     train_indices, val_indices = get_default_indices(args)
 
     ckpt_path = os.path.join(args.checkpoint_path, 'last.ckpt')
     if not os.path.exists(ckpt_path):
-        # K-fold 사용시 경로가 다를 수 있음
-        print(f"Warning: Checkpoint not found at {ckpt_path}")
+        print(f"[Warning] last.ckpt not found at: {ckpt_path}")
         return
 
-    print(f"Loading checkpoint: {ckpt_path}")
-    
-    # args=args를 전달하여 hparams 덮어쓰기 가능 (Teacher 경로 등 확보)
+    print(f"[Test] Loading checkpoint: {ckpt_path}")
+
     model = Dinov3KnowledgeDistillationPLModel.load_from_checkpoint(
         checkpoint_path=ckpt_path,
-        params=args, 
+        params=args,
         train_indices=train_indices,
         val_indices=val_indices
     )
@@ -174,10 +209,19 @@ def test():
     )
     trainer.test(model)
 
-if __name__ == '__main__':
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
+
     if args.mode == 'train':
         if args.kfold:
-            main_k_fold()
+            run_k_fold(args)
         else:
-            main()
+            run_single(args)
+    elif args.mode == 'test':
+        run_test(args)
+
+
+if __name__ == '__main__':
+    main()
