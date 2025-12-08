@@ -127,10 +127,19 @@ def importance_maps_distillation(s, t, exp=4):
     :param t: teacher feature maps
     :return: imd loss value
     """
-    # print("t shape :", t.shape)
-    # print("s shape :", s.shape)
-    if s.shape[2] != t.shape[2]:
-        s = F.interpolate(s, t.size()[-2:], mode='bilinear')
+    # Student와 Teacher의 Height(H) 크기 비교
+    s_H = s.shape[2]
+    t_H = t.shape[2]
+    # print("t shape :", s_H)
+    # print("s shape :", t_H)
+    
+    # Case 1: Student가 더 크면 -> Student를 줄여서 Teacher에 맞춤
+    if s_H > t_H:
+        s = F.interpolate(s, t.shape[-2:], mode='bilinear', align_corners=False)    
+    # Case 2: Teacher가 더 크면 -> Teacher를 줄여서 Student에 맞춤
+    elif t_H > s_H:
+        t = F.interpolate(t, s.shape[-2:], mode='bilinear', align_corners=False)
+    
     # print("s interpolate shape :", s.shape)
     return torch.sum((at(s, exp) - at(t, exp)).pow(2), dim=1).mean()
 
