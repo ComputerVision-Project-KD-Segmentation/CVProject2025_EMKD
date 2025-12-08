@@ -141,9 +141,10 @@ def test():
     # [수정] Test 시에도 __init__에 필요한 인자를 넘겨줘야 함
     train_indices, val_indices = get_default_indices(args)
 
-    ckpt_path = os.path.join(args.checkpoint_path, 'last.ckpt')
+    # ckpt_path = os.path.join(args.checkpoint_path, 'last.ckpt')
+    ckpt_path = args.checkpoint_path
     if not os.path.exists(ckpt_path):
-        print(f"Warning: Checkpoint not found at {ckpt_path}")
+        print(f"Checkpoint not found: {ckpt_path}")
         return
 
     print(f"Loading checkpoint: {ckpt_path}")
