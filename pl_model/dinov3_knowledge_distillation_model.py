@@ -89,8 +89,12 @@ class Dinov3KnowledgeDistillationPLModel(BasePLModel):
         bkd_loss = loss_dict['bkd_loss']
         hd_loss = loss_dict['hd_loss']
 
-        loss = loss_seg + self.alpha * loss_pmd + self.beta1 * loss_imd + self.beta2 * loss_rad \
-                + self.beta3 * bkd_loss + self.beta4 * hd_loss
+        loss = loss_seg \
+        + self.alpha * loss_pmd \
+        + self.beta1 * loss_imd \
+        + self.beta2 * loss_rad \
+        + self.beta3 * bkd_loss \
+        + self.beta4 * hd_loss
 
         # [수정 1] Loss Logging (Lightning 2.x 스타일)
         # 각 컴포넌트 별 loss를 기록하면 학습 모니터링에 매우 유용합니다.

@@ -1109,7 +1109,7 @@ class Primus_Multiscale(AbstractDynamicNetworkArchitectures):
         x = x.repeat(1,3,1,1)
         hier = self.dino_encoder.get_intermediate_layers(x,  n=self.interaction_indices, reshape = True)
         # print("Primus_Multiscale hier:", len(hier), hier[0].shape)
-        low = hier[-1]
+        low = hier[0]
         high = hier[-1]
         hier = torch.cat(hier, dim=1)
         dec_out = self.up_projection(hier)

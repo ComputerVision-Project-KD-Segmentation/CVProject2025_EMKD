@@ -489,3 +489,25 @@ class DSDLoss(nn.Module):
             'bkd_loss': bkd_loss,
             'hd_loss': hd_loss
         }
+
+# ==================== MSE ====================
+
+class MSELoss(nn.Module):
+    """
+    Standard MSE Loss for Feature Distillation
+    Calculates Mean Squared Error between Student and Teacher features.
+    """
+    def __init__(self):
+        super(MSELoss, self).__init__()
+        self.criterion = nn.MSELoss()
+
+    def forward(self, s, t):
+        s_H = s.shape[2]
+        t_H = t.shape[2]
+        # Case 1: Student가 더 크면 -> Student를 줄여서 Teacher에 맞춤
+        if s_H > t_H:
+            s = F.interpolate(s, t.shape[-2:], mode='bilinear', align_corners=False)    
+        # Case 2: Teacher가 더 크면 -> Teacher를 줄여서 Student에 맞춤
+        elif t_H > s_H:
+            t = F.interpolate(t, s.shape[-2:], mode='bilinear', align_corners=False)
+        return self.criterion(s, t)
