@@ -490,24 +490,72 @@ class DSDLoss(nn.Module):
             'hd_loss': hd_loss
         }
 
-# ==================== MSE ====================
+# ==================== 해상도 조절 ====================
+    
 
-class MSELoss(nn.Module):
-    """
-    Standard MSE Loss for Feature Distillation
-    Calculates Mean Squared Error between Student and Teacher features.
-    """
-    def __init__(self):
-        super(MSELoss, self).__init__()
-        self.criterion = nn.MSELoss()
+class AttentionTransferLoss(nn.Module):
+    def __init__(self, in_channels, out_channels=None, exp=4):
+        """
+        :param in_channels: 입력 피처의 채널 수 (Student)
+        :param out_channels: 타겟 피처의 채널 수 (Teacher). None이면 in_channels와 동일하다고 가정
+        :param exp: Attention exponent
+        """
+        super(AttentionTransferLoss, self).__init__()
+        self.exp = exp
+        
+        # 채널 수가 다를 경우를 대비하거나, 해상도 조정을 위한 Conv 레이어 정의
+        # 여기서는 해상도를 절반으로 줄이는(Stride=2) 어댑터를 예시로 듭니다.
+        # 만약 해상도가 같다면 Stride=1, 해상도가 2배 차이면 Stride=2가 됩니다.
+        
+        target_channels = out_channels if out_channels else in_channels
+        
+        # [Case 1] Student -> Teacher (Downsample): Student가 Teacher보다 2배 클 때
+        self.s_adapter = nn.Sequential(
+            nn.Conv2d(in_channels, target_channels, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(target_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        # [Case 2] Teacher -> Student (Downsample): Teacher가 Student보다 2배 클 때
+        # 필요하다면 사용하되, 보통은 Student를 변형합니다.
+        self.t_adapter = nn.Sequential(
+            nn.Conv2d(target_channels, in_channels, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def at(self, x):
+        """
+        Attention value of a feature map
+        """
+        return F.normalize(x.pow(self.exp).mean(1).view(x.size(0), -1))
 
     def forward(self, s, t):
+        """
+        :param s: student feature maps
+        :param t: teacher feature maps
+        """
         s_H = s.shape[2]
         t_H = t.shape[2]
-        # Case 1: Student가 더 크면 -> Student를 줄여서 Teacher에 맞춤
+
+        # 1. 해상도 비교 및 Conv 적용
         if s_H > t_H:
-            s = F.interpolate(s, t.shape[-2:], mode='bilinear', align_corners=False)    
-        # Case 2: Teacher가 더 크면 -> Teacher를 줄여서 Student에 맞춤
+            # Student가 더 크면: Conv로 Student를 줄여서 Teacher 크기에 맞춤
+            # 주의: Stride=2는 해상도를 정확히 1/2로 줄입니다. 
+            # 해상도 차이가 2배가 아니라면 F.interpolate와 Conv를 섞거나 AdaptiveAvgPool을 써야 합니다.
+            s_input = self.s_adapter(s)
+            t_input = t
         elif t_H > s_H:
-            t = F.interpolate(t, s.shape[-2:], mode='bilinear', align_corners=False)
-        return self.criterion(s, t)
+            # Teacher가 더 크면: Conv로 Teacher를 줄여서 Student 크기에 맞춤
+            s_input = s
+            t_input = self.t_adapter(t)
+        else:
+            # 해상도가 같으면 그대로 사용
+            s_input = s
+            t_input = t
+
+        # 2. Attention Map 추출 및 Loss 계산
+        # 만약 채널 수가 달라도 at() 함수 내부에서 mean(1)을 통해 채널을 압축하므로
+        # Conv에서 채널을 꼭 맞추지 않아도 계산은 가능합니다. (하지만 맞추는 것이 학습엔 더 좋습니다)
+        
+        return torch.sum((self.at(s_input) - self.at(t_input)).pow(2), dim=1).mean()
