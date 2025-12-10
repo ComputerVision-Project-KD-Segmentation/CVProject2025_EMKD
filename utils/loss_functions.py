@@ -2,7 +2,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from dynamic_network_architectures.building_blocks.patch_encode_decode import LayerNormNd
 
 class FocalLoss(nn.Module) :
     def __init__(self, gamma=0, alpha=None, size_average=True) :
