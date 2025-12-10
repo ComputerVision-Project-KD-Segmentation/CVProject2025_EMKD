@@ -25,6 +25,9 @@ class Dinov3KnowledgeDistillationPLModel(BasePLModel):
         self.beta3 = self.hparams.get('beta3', beta3)
         self.beta4 = self.hparams.get('beta4', beta4)
 
+        self.num_epochs = self.hparams.epochs
+        self.warmup_epochs = int(self.num_epochs * 0.1)
+
         # 1. Load and freeze teacher net
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
         self.t_net = Dinov3SegmentationPLModel.load_from_checkpoint(
@@ -158,11 +161,34 @@ class Dinov3KnowledgeDistillationPLModel(BasePLModel):
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(0.9, 0.999))
+
+        def lr_lambda(current_epoch):
+            # Linear warmup phase.
+            if current_epoch < self.warmup_epochs:
+                # 0.0 ~ 1.0 까지 선형적으로 증가 (혹은 아주 작은 값부터 시작하고 싶다면 조정 가능)
+                # 이렇게 하면 각 그룹은 (0 ~ 1.0) * (자기 자신의 lr) 로 동작하므로 비율이 깨지지 않음
+                return float(current_epoch + 1) / float(self.warmup_epochs)
+            else:
+                power = 1.0
+                # 전체 진행도 계산
+                progress = (current_epoch - self.warmup_epochs) / (self.num_epochs - self.warmup_epochs)
+                return max(0.0, (1 - progress) ** power)
+
+        # Create the scheduler that uses the lambda function.
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda=lr_lambda)
+
         scheduler = {
-            'scheduler': torch.optim.lr_scheduler.CosineAnnealingLR(
-                opt, T_max=self.hparams.epochs, eta_min=1e-6
-            ),
+            'scheduler': lr_scheduler,
             'interval': 'epoch',
-            'frequency': 1
+            'frequency': 1,
+            'name': 'learning_rate',
         }
+
+        # scheduler = {
+        #     'scheduler': torch.optim.lr_scheduler.CosineAnnealingLR(
+        #         opt, T_max=self.hparams.epochs, eta_min=1e-6
+        #     ),
+        #     'interval': 'epoch',
+        #     'frequency': 1
+        # }
         return [opt], [scheduler]
