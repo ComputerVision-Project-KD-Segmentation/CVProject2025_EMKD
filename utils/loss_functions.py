@@ -3,7 +3,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-
 class FocalLoss(nn.Module) :
     def __init__(self, gamma=0, alpha=None, size_average=True) :
         super(FocalLoss, self).__init__()
@@ -135,10 +134,14 @@ def importance_maps_distillation(s, t, exp=4):
     
     # Case 1: Student가 더 크면 -> Student를 줄여서 Teacher에 맞춤
     if s_H > t_H:
-        s = F.interpolate(s, t.shape[-2:], mode='bilinear', align_corners=False)    
+        # s = F.interpolate(s, t.shape[-2:], mode='bilinear', align_corners=False)
+        avg_pool = nn.AdaptiveAvgPool2d((t_H, t_H))
+        s = avg_pool(s)
     # Case 2: Teacher가 더 크면 -> Teacher를 줄여서 Student에 맞춤
     elif t_H > s_H:
-        t = F.interpolate(t, s.shape[-2:], mode='bilinear', align_corners=False)
+        # t = F.interpolate(t, s.shape[-2:], mode='bilinear', align_corners=False)
+        avg_pool = nn.AdaptiveAvgPool2d((s_H, s_H))
+        t = avg_pool(t)
     
     # print("s interpolate shape :", s.shape)
     return torch.sum((at(s, exp) - at(t, exp)).pow(2), dim=1).mean()
