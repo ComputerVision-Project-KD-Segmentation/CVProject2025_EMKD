@@ -95,10 +95,10 @@ class KnowledgeDistillationPLModel(BasePLModel):
         # [수정 1] Loss Logging (Lightning 2.x 스타일)
         # 각 컴포넌트 별 loss를 기록하면 학습 모니터링에 매우 유용합니다.
         self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_loss_seg', loss_seg, on_step=False, on_epoch=True)
-        self.log('train_loss_pmd', loss_pmd, on_step=False, on_epoch=True)
-        self.log('train_loss_imd', loss_imd, on_step=False, on_epoch=True)
-        self.log('train_loss_rad', loss_rad, on_step=False, on_epoch=True)
+        self.log('train_loss_seg', loss_seg, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_pmd', loss_pmd, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_imd', loss_imd, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('train_loss_rad', loss_rad, on_step=False, on_epoch=True, prog_bar=True)
         self.log('train_bkd', bkd_loss, on_step=False, on_epoch=True)
         self.log('train_hd', hd_loss, on_step=False, on_epoch=True)
 
