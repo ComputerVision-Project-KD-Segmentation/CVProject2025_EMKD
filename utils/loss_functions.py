@@ -175,11 +175,15 @@ def region_affinity_distillation(s, t, gt):
     # 1. Resize GT to match Student spatial dimensions
     # Use mode='nearest' to preserve integer class values if gt is discrete, 
     # or 'bilinear' if gt is soft probabilities.
-    gt_s = F.interpolate(gt, size=s.shape[2:], mode='nearest')
+    # gt_s = F.interpolate(gt, size=s.shape[2:], mode='nearest')
+    gt_s = F.interpolate(gt, size=s.shape[2:], mode='bilinear', align_corners=False)
+    gt_s = torch.clamp(gt_s, 0, 1)
     rc_s = region_contrast(s, gt_s)
 
     # 2. Resize GT to match Teacher spatial dimensions
-    gt_t = F.interpolate(gt, size=t.shape[2:], mode='nearest')
+    # gt_t = F.interpolate(gt, size=t.shape[2:], mode='nearest')
+    gt_t = F.interpolate(gt, size=t.shape[2:], mode='bilinear', align_corners=False)
+    gt_t = torch.clamp(gt_t, 0, 1)
     rc_t = region_contrast(t, gt_t)
 
     return (rc_s - rc_t).pow(2).mean()
