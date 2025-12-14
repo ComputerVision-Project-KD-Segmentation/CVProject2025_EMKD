@@ -43,6 +43,7 @@ class KnowledgeDistillationPLModel(BasePLModel):
 
         # 3. 't_net'으로 시작하는 키 제거 (필터링)
         new_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('t_net.')}
+        print(new_state_dict.keys())
 
         # 4. 필터링된 가중치를 모델에 적용
         # self.t_net.load_state_dict(new_state_dict, strict=False)
