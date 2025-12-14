@@ -162,7 +162,8 @@ def test():
         checkpoint_path=ckpt_path,
         params=args, # 만약 __init__에서 params를 쓴다면 명시
         train_indices=train_indices,
-        val_indices=val_indices
+        val_indices=val_indices,
+        strict=False
     )
     
     trainer = Trainer(
