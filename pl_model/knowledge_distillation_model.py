@@ -29,6 +29,7 @@ class KnowledgeDistillationPLModel(BasePLModel):
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
         self.t_net = SegmentationPLModel.load_from_checkpoint(
             checkpoint_path=self.hparams.tckpt,
+            model=self.hparams.model,
             train_indices=[],
             val_indices=[]
         )
