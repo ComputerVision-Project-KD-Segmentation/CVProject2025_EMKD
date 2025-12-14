@@ -27,28 +27,12 @@ class KnowledgeDistillationPLModel(BasePLModel):
 
         # 1. Load and freeze teacher net
         # SegmentationPLModel도 LightningModule이므로 load_from_checkpoint 사용 가능
-        # self.t_net = SegmentationPLModel.load_from_checkpoint(
-        #     checkpoint_path=self.hparams.tckpt,
-        #     train_indices=[],
-        #     val_indices=[]
-        # )
         self.t_net = SegmentationPLModel(
             params=self.hparams,
             train_indices=[],
-            val_indices=[]
+            val_indices=[],
+            strict=False
         )
-        # 2. 체크포인트 파일 불러오기
-        checkpoint = torch.load(self.hparams.tckpt, map_location='cpu')
-        state_dict = checkpoint['state_dict']
-
-        # 3. 't_net'으로 시작하는 키 제거 (필터링)
-        new_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('t_net.')}
-        print(new_state_dict.keys())
-
-        # 4. 필터링된 가중치를 모델에 적용
-        # self.t_net.load_state_dict(new_state_dict, strict=False)
-        self.t_net.load_state_dict(new_state_dict)
-
         self.t_net.freeze() # 파라미터 동결 및 eval 모드 설정
 
         # 2. Student net
