@@ -13,7 +13,8 @@ class SegmentationPLModel(BasePLModel):
         self.save_hyperparameters(params)
         
         # 모델 로드 (channels=2는 사용하시는 설정에 맞게 유지)
-        self.net = get_model(self.hparams.model, channels=2)
+        model_name = getattr(self.hparams, 'model', 'raunet')
+        self.net = get_model(model_name, channels=2)
         
         self.train_indices = train_indices
         self.val_indices = val_indices
