@@ -41,11 +41,12 @@ class KnowledgeDistillationPLModel(BasePLModel):
         checkpoint = torch.load(self.hparams.tckpt, map_location='cpu')
         state_dict = checkpoint['state_dict']
 
-        # 3. 't_net'으로 시작하는 키 추가 (필터링)
-        new_state_dict = {k: v for k, v in state_dict.items() if k.startswith('t_net.')}
+        # 3. 't_net'으로 시작하는 키 제거 (필터링)
+        new_state_dict = {k: v for k, v in state_dict.items() if not k.startswith('t_net.')}
 
-        # 4. 필터링된 가중치를 모델에 적용 (strict=False 필수)
-        self.t_net.load_state_dict(new_state_dict, strict=False)
+        # 4. 필터링된 가중치를 모델에 적용
+        # self.t_net.load_state_dict(new_state_dict, strict=False)
+        self.t_net.load_state_dict(new_state_dict)
 
         self.t_net.freeze() # 파라미터 동결 및 eval 모드 설정
 
