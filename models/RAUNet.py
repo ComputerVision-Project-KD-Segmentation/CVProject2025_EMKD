@@ -91,9 +91,10 @@ class RAUNet(nn.Module):
         x = self.firstmaxpool(x)
         e1 = self.encoder1(x)
         e2 = self.encoder2(e1)
-        high = e2
+        # high = e2
         e3 = self.encoder3(e2)
         e4 = self.encoder4(e3)
+        high = e4
 
         d4 = self.decoder4(e4)
         b4 = self.gau3(d4, e3)
