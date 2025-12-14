@@ -28,6 +28,7 @@ def build_parser():
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--smodel', type=str, default='enet', help='Student model name')
+    parser.add_argument('--model', type=str, default='raunet', help='Teacher model name')
     parser.add_argument('--task', type=str, default='tumor', choices=['tumor', 'organ'])
     parser.add_argument('--epochs', type=int, default=60)
     parser.add_argument('--lr', type=float, default=1e-3)
