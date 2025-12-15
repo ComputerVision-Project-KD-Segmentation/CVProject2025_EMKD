@@ -78,8 +78,10 @@ class KnowledgeDistillationPLModel(BasePLModel):
         loss_seg = calc_loss(output, mask)
 
         loss_pmd = prediction_map_distillation(output, t_out)
-        loss_imd = importance_maps_distillation(low, t_low) + importance_maps_distillation(high, t_high)
-        loss_rad = region_affinity_distillation(low, t_low, mask) + region_affinity_distillation(high, t_high, mask)
+        loss_imd = importance_maps_distillation(high, t_high)
+        loss_rad = region_affinity_distillation(high, t_high, mask)
+        # loss_imd = importance_maps_distillation(low, t_low) + importance_maps_distillation(high, t_high)
+        # loss_rad = region_affinity_distillation(low, t_low, mask) + region_affinity_distillation(high, t_high, mask)
 
         loss_dict = self.dsd_loss(
             feat_student=output,

@@ -1111,7 +1111,7 @@ class Primus_Multiscale(AbstractDynamicNetworkArchitectures):
         
         # print("Primus_Multiscale hier:", len(hier), hier[0].shape)
         low = hier[0]
-        high = torch.cat(hier, dim=1)
+        high = torch.cat(hier[:1], dim=1)
 
         # low = torch.cat(hier[:1], dim=1)
         # high = torch.cat(hier, dim=1)
